@@ -1,4 +1,5 @@
 import shutil
+import re
 
 from recipe_scrapers import scrape_me
 from rich.console import Console
@@ -67,6 +68,30 @@ def format_file_name(recipe_title: str) -> str:
     return "".join(s) + f"-{random_id}"
 
 
+def normalize_ingredient_parentheses(ingredient: str) -> str:
+    """
+    Normalizes double parentheses and trims whitespace inside parentheses in ingredient strings.
+    Fixes cases like:
+    - ((optional)) -> (optional)
+    - ( (optional)) -> (optional)
+    - (chopped or minced ) -> (chopped or minced)
+    
+    :param ingredient: ingredient string that may contain double parentheses or extra whitespace
+    :return: ingredient string with normalized parentheses
+    :rtype: string
+    """
+    # Fix double parentheses: ((text)) -> (text)
+    ingredient = re.sub(r'\(\(([^)]+)\)\)', r'(\1)', ingredient)
+    # Fix space before opening parenthesis: ( (text)) -> (text)
+    ingredient = re.sub(r'\(\s*\(([^)]+)\)\)', r'(\1)', ingredient)
+    # Fix any remaining double parentheses patterns
+    ingredient = re.sub(r'\(\(([^)]+)\)\)', r'(\1)', ingredient)
+    # Trim whitespace inside parentheses: (text ) -> (text) or ( text) -> (text)
+    ingredient = re.sub(r'\(([^)]+)\)', lambda m: f"({m.group(1).strip()})", ingredient)
+    
+    return ingredient
+
+
 def save_recipe_to_markdown(recipe_url: str, yaml_settings) -> str:
     """
     Scrapes recipe URL and saves to markdown file.
@@ -108,7 +133,8 @@ def save_recipe_to_markdown(recipe_url: str, yaml_settings) -> str:
         print(f"\n## Ingredients", file=text_file)
 
         for ingredient in scraper.ingredients():
-            print(f"-", ingredient, file=text_file)
+            normalized_ingredient = normalize_ingredient_parentheses(ingredient)
+            print(f"- {normalized_ingredient}", file=text_file)
 
         print(f"\n## Instructions", file=text_file)
 

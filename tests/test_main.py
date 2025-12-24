@@ -39,6 +39,103 @@ class TestRecipeApp(unittest.TestCase):
                 self.assertIn("- 1 cup flour", content)
                 self.assertIn("1. Mix ingredients", content)
 
+    @patch('pure_recipe.scrape_me')
+    def test_save_recipe_with_optional_ingredient(self, mock_scrape_me):
+        """Test that ingredients with (optional) are not wrapped in additional parentheses."""
+        mock_scraper = MagicMock()
+        mock_scraper.title.return_value = "Test Recipe"
+        mock_scraper.yields.return_value = "4 servings"
+        mock_scraper.total_time.return_value = 30
+        mock_scraper.ingredients.return_value = [
+            "1 cup flour",
+            "2 eggs (optional)",
+            "1 tsp salt"
+        ]
+        mock_scraper.instructions_list.return_value = ["Mix ingredients", "Bake for 20 minutes"]
+        mock_scrape_me.return_value = mock_scraper
+
+        # Use a real temporary directory for actual file operations
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = {"directory": tmpdir, "yield": True, "time": True}
+            recipe_url = "http://example.com/recipe"
+            file_path = save_recipe_to_markdown(recipe_url, settings)
+
+            self.assertTrue(os.path.exists(file_path))
+            with open(file_path, "r") as f:
+                content = f.read()
+                # Check that optional ingredient is printed correctly without extra parentheses
+                self.assertIn("- 2 eggs (optional)", content)
+                # Ensure it's not wrapped in additional parentheses
+                self.assertNotIn("(2 eggs (optional))", content)
+                self.assertNotIn("- (2 eggs (optional))", content)
+
+    @patch('pure_recipe.scrape_me')
+    def test_normalize_double_parentheses(self, mock_scrape_me):
+        """Test that double parentheses in ingredients are normalized to single parentheses."""
+        mock_scraper = MagicMock()
+        mock_scraper.title.return_value = "Test Recipe"
+        mock_scraper.yields.return_value = "4 servings"
+        mock_scraper.total_time.return_value = 30
+        mock_scraper.ingredients.return_value = [
+            "⅛ tsp turmeric ((optional))",
+            "¼ tsp lemon zest ( (optional))",
+            "¼ tsp salt ((adjust to taste))",
+            "1 cup flour (normal)"
+        ]
+        mock_scraper.instructions_list.return_value = ["Mix ingredients"]
+        mock_scrape_me.return_value = mock_scraper
+
+        # Use a real temporary directory for actual file operations
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = {"directory": tmpdir, "yield": True, "time": True}
+            recipe_url = "http://example.com/recipe"
+            file_path = save_recipe_to_markdown(recipe_url, settings)
+
+            self.assertTrue(os.path.exists(file_path))
+            with open(file_path, "r") as f:
+                content = f.read()
+                # Check that double parentheses are normalized
+                self.assertIn("- ⅛ tsp turmeric (optional)", content)
+                self.assertIn("- ¼ tsp lemon zest (optional)", content)
+                self.assertIn("- ¼ tsp salt (adjust to taste)", content)
+                self.assertIn("- 1 cup flour (normal)", content)
+                # Ensure double parentheses are not present
+                self.assertNotIn("((optional))", content)
+                self.assertNotIn("( (optional))", content)
+                self.assertNotIn("((adjust to taste))", content)
+
+    @patch('pure_recipe.scrape_me')
+    def test_trim_whitespace_in_parentheses(self, mock_scrape_me):
+        """Test that whitespace inside parentheses is trimmed."""
+        mock_scraper = MagicMock()
+        mock_scraper.title.return_value = "Test Recipe"
+        mock_scraper.yields.return_value = "4 servings"
+        mock_scraper.total_time.return_value = 30
+        mock_scraper.ingredients.return_value = [
+            "1 tbsp ginger (chopped or minced )",
+            "½ tbsp garlic (chopped or minced)",
+            "1 cup flour ( normal )"
+        ]
+        mock_scraper.instructions_list.return_value = ["Mix ingredients"]
+        mock_scrape_me.return_value = mock_scraper
+
+        # Use a real temporary directory for actual file operations
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = {"directory": tmpdir, "yield": True, "time": True}
+            recipe_url = "http://example.com/recipe"
+            file_path = save_recipe_to_markdown(recipe_url, settings)
+
+            self.assertTrue(os.path.exists(file_path))
+            with open(file_path, "r") as f:
+                content = f.read()
+                # Check that whitespace is trimmed inside parentheses
+                self.assertIn("- 1 tbsp ginger (chopped or minced)", content)
+                self.assertIn("- ½ tbsp garlic (chopped or minced)", content)
+                self.assertIn("- 1 cup flour (normal)", content)
+                # Ensure trailing/leading spaces are not present
+                self.assertNotIn("(chopped or minced )", content)
+                self.assertNotIn("( normal )", content)
+
     @patch('builtins.open', new_callable=mock_open, read_data="# Test Recipe\n**Serves:** 4 servings\n**Total Time:** 30 mins\n\n## Ingredients\n- 1 cup flour\n- 2 eggs\n\n## Instructions\n1. Mix ingredients\n2. Bake for 20 minutes")
     @patch('os.path.exists', return_value=True)
     def test_view_recipe(self, mock_exists, mock_open):
