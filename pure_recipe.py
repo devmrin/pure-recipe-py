@@ -91,6 +91,7 @@ def save_recipe_to_markdown(recipe_url: str, yaml_settings) -> str:
 
     with open(recipe_file, "w+") as text_file:
         print(f"# {title}", file=text_file)
+        print(f"\n**Link to original recipe:** {recipe_url}\n", file=text_file)
 
         if yaml_settings["yield"]:
             print(f"**Serves:** {scraper.yields()}", file=text_file)
