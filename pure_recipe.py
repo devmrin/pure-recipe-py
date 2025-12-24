@@ -8,6 +8,7 @@ import yaml
 import os
 import platformdirs
 import inquirer
+import pyperclip
 
 console = Console()
 
@@ -142,7 +143,7 @@ def view_recipe(recipe_url: str, yaml_settings: dict, prompt_save: bool = True) 
                 inquirer.List(
                     "after_view",
                     message="What would you like to do next?",
-                    choices=["Save this recipe", "Quit"]
+                    choices=["Save this recipe", "Copy to clipboard", "Quit"]
                 )
             ]
 
@@ -154,6 +155,12 @@ def view_recipe(recipe_url: str, yaml_settings: dict, prompt_save: bool = True) 
                         console.print("\nRecipe saved successfully.\n", style="bright_green")
                     except Exception as e:
                         console.print(f"\nError saving the recipe: {str(e)}\n", style="bright_red")
+                elif after_view_answer and after_view_answer.get("after_view") == "Copy to clipboard":
+                    try:
+                        pyperclip.copy(md_content)
+                        console.print("\nRecipe copied to clipboard successfully.\n", style="bright_green")
+                    except Exception as e:
+                        console.print(f"\nError copying to clipboard: {str(e)}\n", style="bright_red")
                 elif after_view_answer and after_view_answer.get("after_view") == "Quit":
                     return
             except (KeyboardInterrupt, EOFError):

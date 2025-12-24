@@ -22,6 +22,7 @@ This is a terminal application that allows you to quickly bypass the junk that p
 
 - View recipes directly in your terminal.
 - Save recipes to markdown for easy access and sharing.
+- Copy recipes to clipboard for quick sharing.
 - Support for a wide range of cooking sites.
 - Easy-to-use command-line interface.
 
@@ -52,6 +53,11 @@ There are four options: `view`, `save`, `list`, or `browse`.
 **Example:**
 
 	python pure_recipe.py view https://www.seriouseats.com/potato-wedges-recipe-5217319
+
+After viewing a recipe, you'll be presented with options to:
+- **Save this recipe** - Save the recipe to a markdown file
+- **Copy to clipboard** - Copy the recipe markdown to your clipboard
+- **Quit** - Exit the program
 
 Viewing example:
 
