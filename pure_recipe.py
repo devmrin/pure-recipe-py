@@ -9,6 +9,7 @@ import os
 import platformdirs
 import inquirer
 import pyperclip
+import random
 
 console = Console()
 
@@ -48,10 +49,10 @@ def clear_console() -> None:
 
 def format_file_name(recipe_title: str) -> str:
     """
-    Converts the recipe title to a nice format.
+    Converts the recipe title to a filename format with a random 4-digit ID.
 
     :param recipe_title: a string containing a recipe title.
-    :return: formatted title
+    :return: formatted filename (lowercase with dashes and 4-digit ID)
     :rtype: string
     """
     s = list(recipe_title.lower())
@@ -59,7 +60,11 @@ def format_file_name(recipe_title: str) -> str:
     for i, char in enumerate(s):
         if char.isspace():
             s[i] = "-"
-    return "".join(s)
+    
+    # Generate a random 4-digit ID
+    random_id = random.randint(1000, 9999)
+    
+    return "".join(s) + f"-{random_id}"
 
 
 def save_recipe_to_markdown(recipe_url: str, yaml_settings) -> str:
@@ -86,7 +91,9 @@ def save_recipe_to_markdown(recipe_url: str, yaml_settings) -> str:
     if not os.path.exists(directory):
         os.makedirs(directory, exist_ok=True)
     
-    title = scraper.title().replace(" ", "-")
+    # Keep title clean (no dashes)
+    title = scraper.title()
+    # Generate filename with dashes and random ID
     recipe_file = os.path.join(directory, format_file_name(title) + ".md")
 
     with open(recipe_file, "w+") as text_file:

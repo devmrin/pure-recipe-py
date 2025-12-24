@@ -3,17 +3,15 @@ from unittest.mock import patch, mock_open, MagicMock
 import os
 import tempfile
 import yaml
+import re
 from pure_recipe import *
 
 from recipe_scrapers import scrape_me
 
 class TestRecipeApp(unittest.TestCase):
 
-    @patch('builtins.open', new_callable=mock_open, read_data="http://example.com/recipe")
-    @patch('os.makedirs')
-    @patch('os.path.exists', return_value=False)
-    @patch('recipe_scrapers.scrape_me')
-    def test_save_recipe_to_markdown(self, mock_scrape_me, mock_exists, mock_makedirs, mock_open):
+    @patch('pure_recipe.scrape_me')
+    def test_save_recipe_to_markdown(self, mock_scrape_me):
         mock_scraper = MagicMock()
         mock_scraper.title.return_value = "Test Recipe"
         mock_scraper.yields.return_value = "4 servings"
@@ -22,18 +20,24 @@ class TestRecipeApp(unittest.TestCase):
         mock_scraper.instructions_list.return_value = ["Mix ingredients", "Bake for 20 minutes"]
         mock_scrape_me.return_value = mock_scraper
 
-        settings = {"directory": tempfile.gettempdir(), "yield": True, "time": True}
-        recipe_url = "http://example.com/recipe"
-        file_path = save_recipe_to_markdown(recipe_url, settings)
+        # Use a real temporary directory for actual file operations
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = {"directory": tmpdir, "yield": True, "time": True}
+            recipe_url = "http://example.com/recipe"
+            file_path = save_recipe_to_markdown(recipe_url, settings)
 
-        self.assertTrue(os.path.exists(file_path))
-        with open(file_path, "r") as f:
-            content = f.read()
-            self.assertIn("# Test-Recipe", content)
-            self.assertIn("**Serves:** 4 servings", content)
-            self.assertIn("**Total Time:** 30 mins", content)
-            self.assertIn("- 1 cup flour", content)
-            self.assertIn("1. Mix ingredients", content)
+            self.assertTrue(os.path.exists(file_path))
+            # Check filename pattern: test-recipe-XXXX.md where XXXX is 4-digit ID
+            filename = os.path.basename(file_path)
+            self.assertTrue(re.match(r"test-recipe-\d{4}\.md", filename), 
+                           f"Filename {filename} doesn't match expected pattern")
+            with open(file_path, "r") as f:
+                content = f.read()
+                self.assertIn("# Test Recipe", content)  # Clean title without dashes
+                self.assertIn("**Serves:** 4 servings", content)
+                self.assertIn("**Total Time:** 30 mins", content)
+                self.assertIn("- 1 cup flour", content)
+                self.assertIn("1. Mix ingredients", content)
 
     @patch('builtins.open', new_callable=mock_open, read_data="# Test Recipe\n**Serves:** 4 servings\n**Total Time:** 30 mins\n\n## Ingredients\n- 1 cup flour\n- 2 eggs\n\n## Instructions\n1. Mix ingredients\n2. Bake for 20 minutes")
     @patch('os.path.exists', return_value=True)
@@ -43,11 +47,8 @@ class TestRecipeApp(unittest.TestCase):
         with patch('inquirer.prompt', return_value={"after_view": "Quit"}):
             view_recipe(recipe_url, settings, prompt_save=False)
 
-    @patch('builtins.open', new_callable=mock_open, read_data="http://example.com/recipe1\nhttp://example.com/recipe2")
-    @patch('os.makedirs')
-    @patch('os.path.exists', return_value=False)
-    @patch('recipe_scrapers.scrape_me')
-    def test_save_list_of_recipes(self, mock_scrape_me, mock_exists, mock_makedirs, mock_open):
+    @patch('pure_recipe.scrape_me')
+    def test_save_list_of_recipes(self, mock_scrape_me):
         mock_scraper = MagicMock()
         mock_scraper.title.return_value = "Test Recipe"
         mock_scraper.yields.return_value = "4 servings"
@@ -56,23 +57,32 @@ class TestRecipeApp(unittest.TestCase):
         mock_scraper.instructions_list.return_value = ["Mix ingredients", "Bake for 20 minutes"]
         mock_scrape_me.return_value = mock_scraper
 
-        settings = {"directory": tempfile.gettempdir(), "yield": True, "time": True}
-        url_file = tempfile.mktemp()
-        with open(url_file, "w") as f:
-            f.write("http://example.com/recipe1\nhttp://example.com/recipe2")
+        # Use a real temporary directory for actual file operations
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = {"directory": tmpdir, "yield": True, "time": True}
+            url_file = os.path.join(tmpdir, "urls.txt")
+            with open(url_file, "w") as f:
+                f.write("http://example.com/recipe1\nhttp://example.com/recipe2")
 
-        save_list_of_recipes(url_file, settings)
+            save_list_of_recipes(url_file, settings)
 
-        for i in range(1, 3):
-            file_path = os.path.join(tempfile.gettempdir(), f"test-recipe{i}.md")
-            self.assertTrue(os.path.exists(file_path))
-            with open(file_path, "r") as f:
-                content = f.read()
-                self.assertIn("# Test-Recipe", content)
-                self.assertIn("**Serves:** 4 servings", content)
-                self.assertIn("**Total Time:** 30 mins", content)
-                self.assertIn("- 1 cup flour", content)
-                self.assertIn("1. Mix ingredients", content)
+            # Check that files were created with correct pattern
+            files_created = [f for f in os.listdir(tmpdir) 
+                            if f.startswith("test-recipe-") and f.endswith(".md")]
+            self.assertEqual(len(files_created), 2, "Expected 2 recipe files to be created")
+            
+            for filename in files_created:
+                # Verify filename pattern: test-recipe-XXXX.md
+                self.assertTrue(re.match(r"test-recipe-\d{4}\.md", filename),
+                               f"Filename {filename} doesn't match expected pattern")
+                file_path = os.path.join(tmpdir, filename)
+                with open(file_path, "r") as f:
+                    content = f.read()
+                    self.assertIn("# Test Recipe", content)  # Clean title without dashes
+                    self.assertIn("**Serves:** 4 servings", content)
+                    self.assertIn("**Total Time:** 30 mins", content)
+                    self.assertIn("- 1 cup flour", content)
+                    self.assertIn("1. Mix ingredients", content)
 
     @patch('os.listdir', return_value=["test-recipe.md"])
     @patch('builtins.open', new_callable=mock_open, read_data="# Test Recipe\n**Serves:** 4 servings\n**Total Time:** 30 mins\n\n## Ingredients\n- 1 cup flour\n- 2 eggs\n\n## Instructions\n1. Mix ingredients\n2. Bake for 20 minutes")
